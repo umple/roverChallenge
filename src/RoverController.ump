@@ -3,18 +3,181 @@
 external DriveCommands {}
 external SocketCommunicator {}
 
+// Generic Rover class
+class Rover {
+  abstract;
+  
+  depend java.util.Scanner;
+  depend java.util.regex.*;
+
+  String nameForCommanding;
+  SocketCommunicator querySocket;
+  
+  long lastUpdateTime = 0L;
+  const long MinimumRefreshTime = 20L;
+  
+  * -> 1 RoverController controller;
+  
+  Double xPos = 0.0;
+  before getXPos {updatePosition();}
+  Double xPosQuick = {xPos}; // Used when we know it was just calculated
+    
+  Double yPos = 0.0;
+  before getYPos {updatePosition();}
+  Double yPosQuick = {yPos}; // Used when we know it was just calculated
+
+  Double speed = 0.0; // to be calculated from two position readings over time
+  Double speedQuick = {speed}; // Used when we know it was just calculated  
+
+  String getPositionString (){
+    return (nameForCommanding+" Position: "+
+     String.format("%.5f",getXPos())+","+String.format("%.5f",getYPos())+
+     " Speed: "+String.format("%.5f",getSpeed()));
+  }
+
+  
+  void updatePosition() {
+    long updateTime = System.currentTimeMillis();
+    if(updateTime - lastUpdateTime > MinimumRefreshTime) {
+      // Save previous data so we can calculate speed
+      double oldXPos = xPos;  // avoid using get to prevent recursion
+      double oldYPos = yPos;  // avoid using get to prevent recursion
+    
+      // Update GPS position 
+      String qresult = querySocket.send(nameForCommanding+",GPS()");
+      Scanner s = new Scanner(qresult);    
+      s.findInLine(nameForCommanding+",(-?\\d+\\.\\d+(?:E-?d+)?),(-?\\d+\\.\\d+(?:E-?d+)?);");
+      try {
+        MatchResult result = s.match();
+        if(result.group(1).contains("E")) setXPos(0.0);
+        else setXPos(Double.parseDouble(result.group(1))); 
+        
+        if(result.group(2).contains("E")) setYPos(0.0);
+        else setYPos(Double.parseDouble(result.group(2))); 
+      }
+      catch(Exception ise) {
+        System.out.println("Could not extract GPS position: "+qresult);
+        System.exit(-1);
+      }
+
+      s.close(); 
+    
+      // Update other data specific to subclasses
+      updateOtherData();
+      
+      // Calculate speed (multiply result by 1000 so it is per second)
+      if(lastUpdateTime > 0) {
+        double deltaX= xPos - oldXPos;
+        double deltaY= yPos - oldYPos;
+        long deltaTime = updateTime -lastUpdateTime;
+        setSpeed(1000.0*Math.sqrt(deltaX*deltaX+deltaY*deltaY)/(double)deltaTime);
+      }   
+      lastUpdateTime = updateTime;
+    }  
+  }
+  
+  void updateOtherData() {} // do nothing in this abstract class
+  
+}
+
+class LeaderRover {
+  depend java.util.Scanner;
+  depend java.util.regex.*;
+
+  isA Rover;
+  Double distanceToFollower =0.0;
+  
+  String getPositionString (){
+    return (super.getPositionString()+" Dist: "+
+     String.format("%.5f",getDistanceToFollower()));
+  } 
+  
+  void updateOtherData() {
+    // Update Distance to follower
+    String qresult = getQuerySocket().send(getNameForCommanding()+",Distance()");
+    Scanner s = new Scanner(qresult);    
+    s.findInLine(getNameForCommanding()+",(\\d+\\.\\d+(?:E-?d+)?);");
+    try {
+      MatchResult result = s.match();
+      setDistanceToFollower(Double.parseDouble(result.group(1))); 
+    }
+    catch(Exception ise) {
+      System.out.println("Could not extract distance: "+qresult);
+      System.exit(-1);
+    }    
+
+    s.close();     
+  }
+}
+
+class FollowerRover {
+  depend java.util.Scanner;
+  depend java.util.regex.*;
+
+  isA Rover;
+  
+  * -> 0..1 LeaderRover leader;
+  after constructor {
+    setLeader(getController().getLeader());
+  }  
+  
+  Double distanceToLeader = {getLeader().getDistanceToFollower()}
+  Double compass = 0.0;
+  Double bearingToLeader = 0.0;
+
+  String getPositionString (){
+    return (super.getPositionString()+" Comp: "+
+     String.format("%.5f",getCompass())
+     +" ToLeader: "+
+     String.format("%.5f",getBearingToLeader())
+     );
+  } 
+
+  void updateOtherData() {
+    String qresult = getQuerySocket().send(getNameForCommanding()+",getCompass()");
+    Scanner s = new Scanner(qresult);    
+    s.findInLine(getNameForCommanding()+",(\\d+\\.\\d+(?:E-?d+)?);");
+    try {
+      MatchResult result = s.match();
+      setCompass(Double.parseDouble(result.group(1))); 
+    }
+    catch(Exception ise) {
+      System.out.println("Could not extract compass: "+qresult);
+      System.exit(-1);
+    }       
+
+    s.close();
+
+    bearingToLeader = Math.toDegrees(Math.atan2(leader.getXPosQuick() - getXPosQuick(), leader.getYPosQuick() - getYPosQuick()));
+    if(bearingToLeader < 0){
+        bearingToLeader += 360;
+    }
+  }
+  
+  Integer leftWheelPower = 0;
+  Integer rightWheelPower = 0;
+}
+
+
+
 class RoverController 
 {
   depend java.io.File;
   depend java.util.*;
-  depend java.io.FileNotFoundException;  
+  depend java.io.FileNotFoundException;
 
-  private static SocketCommunicator rover = new SocketCommunicator();
-  private static SocketCommunicator ref = new SocketCommunicator();
-  private static DriveCommands drive;  // Initialized in main program
-  public static String IP = "127.0.0.1";
-
-  public static void main(String[] s) {
+  SocketCommunicator rover = new SocketCommunicator();
+  SocketCommunicator ref = new SocketCommunicator();
+  DriveCommands drive = null;  // Initialized in constructor
+  const String IP = "127.0.0.1";
+  
+  0..1 controller -- 0..1 LeaderRover leader;
+  0..1 controller -- 0..1 FollowerRover follower;
+  
+  after constructor {
+    setLeader(new LeaderRover("Leader", ref, this));
+    setFollower(new FollowerRover("Rover", rover, this));
+    
     int refPort=0;
     int roverPort=0;
     try {
@@ -35,7 +198,11 @@ class RoverController
       ref.connectToServer(IP,refPort);
       drive = new DriveCommands(rover,"Rover");
     }
-    catch (Exception e){}
+    catch (Exception e){} 
+  }
+  
+
+  public static void main(String[] s) {
 
     RoverController rc= new RoverController();
     rc.follow();
@@ -44,37 +211,109 @@ class RoverController
   public void follow() {
       
     System.out.println("program: "+ ref.send("ready"));
-    drive.Go();
-    sleepms(500);
-
-    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
-    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
-    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
-    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
-
-    drive.Stop();
-    sleepms(500);  
-
-    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
-    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
-    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
-    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
-
-    drive.Left();
-    sleepms(25);  
-
-    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
-    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
-    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
-    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
 
     drive.Go();
     sleepms(500);
+    
+    int coastTime=0;
+    int powerTime=0;
+    int turnTime= 0;
+    double amountBehind = 0.0;
+    double offHeading =0.0;
+    double myDirection = 0.0;
+    double toLeader =0.0;
+    boolean braking = false;
+    double leaderX = 0.0;
+    double leaderY = 0.0;
+    double prevLeaderX = 0.0;
+    double prevLeaderY = 0.0;
+    int breakReadyCount = 0;
 
-    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
-    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
-    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
-    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
+    for(int i=0; i<100; i++) {
+
+      System.out.println("\n"+leader.getPositionString());
+      System.out.println(follower.getPositionString());
+
+      coastTime=500;
+      drive.Stop();
+      sleepms(coastTime); 
+      System.out.println("\n"+leader.getPositionString());  
+      System.out.println(follower.getPositionString());       
+
+      // ************** TURN if we need to
+      toLeader = follower.getBearingToLeader();
+      if(toLeader > 180.0) toLeader -= 360.0;
+      myDirection = follower.getCompass();
+      if(myDirection > 180.0) myDirection -= 360.0;      
+      offHeading = myDirection-toLeader;
+      turnTime = 25;
+      if(offHeading < -5.0) {
+        drive.Right(); System.out.println(""+i+" Turn RIGHT "+offHeading );
+      }
+      else if(offHeading > 5.0) {
+        drive.Left(); System.out.println(""+i+" Turn LEFT "+offHeading);
+        if(offHeading > 10.0) turnTime *=3;        
+      }
+      // Increase time turning if getting far off course proportional to amount off
+      if(Math.abs(offHeading) > 10) {
+        turnTime = (int)((double) turnTime * Math.abs(offHeading) / 5.0);
+      }
+      
+      sleepms(turnTime);  
+      System.out.println("\n"+leader.getPositionString());  
+      System.out.println(follower.getPositionString());       
+
+      // ************  PUSH ON if we are falling back
+      amountBehind = follower.getDistanceToLeader();
+      if(amountBehind > 13.0)
+      {
+        drive.Go(); System.out.println(""+i+" GO ON");
+        powerTime = 500;
+        breakReadyCount = 0;     
+      }
+      else {
+        drive.Stop();
+      }
+      // If we are getting considerably too far behind,
+      // put more-than-proportionally more time into power
+      if(amountBehind > 13.3) {
+        powerTime = (int)((double)(powerTime * Math.pow(amountBehind / 13.3,3.0)));
+      }
+      
+      // If we have caught up brake slightly proportional to amount ahead
+      braking = false;
+      if(amountBehind < 12.5) {
+        drive.Brake(true); System.out.println(""+i+" BRAKE");
+        powerTime = (int)((15.5-amountBehind) * 10.0);
+        braking = true;
+      }
+      
+      sleepms(powerTime); // POWER TIME
+      if(braking) drive.Brake(false); // turn it off if it was on
+      
+      // Check to see if other rover has completely stopped
+      
+      prevLeaderX = leaderX;
+      leaderX = leader.getXPosQuick();
+      prevLeaderY = leaderY;
+      leaderY = leader.getYPosQuick();
+      if(prevLeaderX == leaderX && prevLeaderY == leaderY) {
+        drive.Brake(true);
+        break; // stop the loop -- we are done.      
+      }
+
+    }
+    
+    amountBehind = follower.getDistanceToLeader();
+    if (amountBehind < 10.0) {
+      drive.Reverse();
+      System.out.println("REVERSING to avoid crash at end");
+      sleepms(40);
+    }
+    drive.Stop();  // Make sure no more power is being applied.
+    
+    System.out.println("Leader has stopped, so braking");
+    drive.Brake(true);
 
   }
 

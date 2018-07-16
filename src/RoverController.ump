@@ -1,0 +1,106 @@
+// Adapted from work by Author: Michal Pasternak
+
+external DriveCommands {}
+external SocketCommunicator {}
+
+class RoverController 
+{
+  depend java.io.File;
+  depend java.util.*;
+  depend java.io.FileNotFoundException;  
+
+  private static SocketCommunicator rover = new SocketCommunicator();
+  private static SocketCommunicator ref = new SocketCommunicator();
+  private static DriveCommands drive;  // Initialized in main program
+  public static String IP = "127.0.0.1";
+
+  public static void main(String[] s) {
+    int refPort=0;
+    int roverPort=0;
+    try {
+      //------ Load config
+      java.util.List<String> conf = readFile("Settings/config.txt");
+      Iterator<String> conIt = conf.iterator();
+      while (conIt.hasNext()) {
+        String a = conIt.next();
+        if (a.contains("=") == true) {
+          String b = a.substring(0, a.indexOf('='));
+          if (b.equals("controlPort"))
+            roverPort = Integer.parseInt(a.substring(a.indexOf('=')+1));
+            if (b.equals("observationPort"))
+              refPort = Integer.parseInt(a.substring(a.indexOf('=')+1));
+        }
+      }
+      rover.connectToServer(IP,roverPort);
+      ref.connectToServer(IP,refPort);
+      drive = new DriveCommands(rover,"Rover");
+    }
+    catch (Exception e){}
+
+    RoverController rc= new RoverController();
+    rc.follow();
+  }
+  
+  public void follow() {
+      
+    System.out.println("program: "+ ref.send("ready"));
+    drive.Go();
+    sleepms(500);
+
+    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
+    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
+    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
+    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
+
+    drive.Stop();
+    sleepms(500);  
+
+    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
+    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
+    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
+    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
+
+    drive.Left();
+    sleepms(25);  
+
+    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
+    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
+    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
+    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
+
+    drive.Go();
+    sleepms(500);
+
+    System.out.println("leader gps : "+ ref.send("Leader,GPS()"));
+    System.out.println("leader dist: "+ ref.send("Leader,Distance()"));
+    System.out.println("rover gps : "+ rover.send("Rover,GPS()"));
+    System.out.println("rover COMP: "+ rover.send("Rover,getCompass()"));
+
+  }
+
+// Added utilities
+  public static void sleepms(int msToSleep) {
+    try { Thread.sleep(msToSleep);} 
+    catch(InterruptedException ex) { Thread.currentThread().interrupt();}    
+  }
+
+  // file read
+  public static java.util.List<String> readFile(String fileName) {
+    int count = 1;
+    File file = new File(fileName);
+    // this gives you a 2-dimensional array of strings
+    java.util.List<String> data = new ArrayList<>();
+    Scanner inputStream;
+    try {
+      inputStream = new Scanner(file);
+
+      while (inputStream.hasNext()) {
+        data.add(inputStream.next());
+      }
+      inputStream.close();
+    } catch (FileNotFoundException e) {
+    e.printStackTrace();
+    }
+    return data;
+  }
+}

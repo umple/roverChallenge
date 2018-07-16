@@ -1,0 +1,15 @@
+#!/bin/csh -fb
+setenv JAVA_HOME /Library/Java/JavaVirtualMachines/jdk1.8.0_172.jdk/Contents/Home
+set srcdir=src
+cd $srcdir
+umple RoverController.ump
+javac *.java
+jar cfe NewRoverController.jar RoverController *.class
+cd ..
+mv $srcdir/NewRoverController.jar .
+
+
+#echo in a terminal enter Mac/Challenge-Mac.app/Contents/MacOS/Challenge-Mac
+#echo in a Observer terminal enter java -jar UnityObserver.jar
+#echo in a RoverController terminal enter java -jar RoverController.jar
+#echo or    java -jar NewRoverController.jar

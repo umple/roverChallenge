@@ -1,5 +1,160 @@
-// Rover controller AM state machine and algorithm mixin
+// Rover controller FM algorithm mixin
+
+// Sets of constants used in the algoritm
+use RoverController_AMParameterSets.ump;
 
 class RoverController {
+  // Degrees we are away from heading for rover
+  Double savedOffHeading = 0.0;
+  
+  // How far from the leader are we
+  Double amountBehind = 0.0;
 
+  // Difference between left and right wheels
+  // max 200 for full turn at standstill, min -200
+  // left-right so right wheel needs to be less to turn right
+  // positive to turn right, negative to turn left
+  Integer lrDifference = 0;
+
+  // Total power (may be differently distributed between wheels)
+  Integer totalPower = INITIAL_TOTAL_POWER;
+
+  public void follow() {
+      
+    System.out.println("program: "+ ref.send("ready"));
+    
+    // Wait a little for the leader to get going
+    sleepms(INITIAL_LEADER_HEADSTART_TIME);
+    
+    // At a regular frequency, find where we are and adjust power
+    for(int i=0; i<200; i++) {
+    
+      System.out.println("\n"+leader.getPositionString());
+      System.out.println(follower.getPositionString());
+    
+      adjust(); // event sent to state machine
+      
+      // stay at that level until the next cycle
+      sleepms(INTERVAL_TIME);
+    }
+    
+  }
+
+  before generated adjust {
+  
+    // Conpute off heading from server and save - needed for guard
+    savedOffHeading = getOffHeading();
+    
+    // Compute amount behind for server
+    amountBehind = follower.getDistanceToLeader();
+  }
+  
+  after generated adjust {
+  
+    // Change power applied to wheels
+    setOverallPower();
+  }
+  
+  // State machine to control distance
+  distanceControl {
+    moving {
+      adjust [amountBehind > DANGER_TOO_FAR_DISTANCE] -> dangerTooFar;
+      adjust [amountBehind > MAX_SAFE_DISTANCE] -> distanceTooFar;
+
+      adjust [amountBehind < DANGER_TOO_NEAR_DISTANCE] -> dangerTooNear; 
+      adjust [amountBehind < CONCERN_TOO_NEAR_DISTANCE] -> concernTooNear;      
+      adjust [amountBehind < MIN_SAFE_DISTANCE] -> distanceTooNear;
+
+      adjust [amountBehind <= MAX_SAFE_DISTANCE && 
+        amountBehind >= MIN_SAFE_DISTANCE] -> distanceJustRight;
+      distanceJustRight {
+        // Keep power as is
+      }
+      distanceTooFar {
+        entry / {adjustPowerBy(SPEED_INCREMENT);}
+      }
+      dangerTooFar {
+        entry / {setTotalPower(100);}
+      }      
+      
+      distanceTooNear {
+        entry / {if(getTotalPower()>SPEED_INCREMENT)    
+          adjustPowerBy(-SPEED_INCREMENT);
+        }
+       }
+      concernTooNear {
+        entry / {setTotalPower(0);}
+      }
+      dangerTooNear {
+        entry / {setTotalPower(-100);}
+      }         
+    }
+  } // end of distance control state machine
+
+   // State machine to control direction
+  directionControl {
+    directionJustRight {
+      // Set wheels to be equal
+      entry / {setLrDifference(0);}
+      adjust [Math.abs(savedOffHeading) > MIN_TURN_THRESHOLD] ->
+         directionMeedsAdjustment;
+    }
+    directionMeedsAdjustment {
+      // Set wheels to be different
+      entry / {
+        setLrDifference(-(int)savedOffHeading * DIRECTION_MULTIPLIER);
+        System.out.println("Direction Adjust: "+ savedOffHeading);
+      }
+        
+      // Direction is OK now
+      adjust [Math.abs(savedOffHeading) <= MIN_TURN_THRESHOLD] ->
+         directionJustRight;
+         
+      // re-check direction every cycle
+      adjust [Math.abs(savedOffHeading) > MIN_TURN_THRESHOLD] ->
+         directionMeedsAdjustment;         
+    }
+    
+  } // end of direction control state machine
+
+  // Adjust the average power of the wheels
+  void adjustPowerBy(int amountToAdjust) {
+    int resultingPower = getTotalPower() + amountToAdjust;
+    if(resultingPower > 100) resultingPower = 100;
+    else if(resultingPower < -100) resultingPower = -100;
+    setTotalPower(resultingPower);
+  }
+  
+  // Change power applied to wheels
+  void setOverallPower() {
+    int powerToApply = getTotalPower();
+    
+    // Adjust total power if we are trying to make sharp turn
+    if((powerToApply + Math.abs(lrDifference)/2) > 100) {
+      powerToApply = 100 - Math.abs(lrDifference) /2;
+    }
+    if((powerToApply - Math.abs(lrDifference)/2) < -100) {
+      powerToApply = -100 + Math.abs(lrDifference) /2;
+    }    
+  
+    int lpower = getTotalPower() + lrDifference/2;
+    if (lpower > 100) lpower = 100;
+    else if (lpower < -100) lpower = -100;
+
+    int rpower = getTotalPower() - lrDifference/2;
+    
+    if (rpower > 100) rpower = 100;
+    else if (rpower < -100) rpower = -100;
+    
+    if(follower.getLeftWheelPower() != lpower ||
+      follower.getRightWheelPower() != rpower)
+    {
+      follower.setLeftWheelPower(lpower);
+      follower.setRightWheelPower(rpower);
+
+      drive.GoWithLRPower(
+        follower.getLeftWheelPower(), 
+        follower.getRightWheelPower());
+    }
+  }  
 }

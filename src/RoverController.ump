@@ -12,7 +12,15 @@ use RoverController_code-updateData.ump; // Update location from server
 use RoverController_code-general.ump; // Utilities
 
 // Choice of follow algorithm
-use RoverController_FMfollow.ump;
+mixset FM {
+  use RoverController_FMfollow.ump;
+}
+mixset AM {
+  use RoverController_AMfolllow.ump;
+}
+// use FM; // Activate the FM mixset
+use AM; // Activate the AM mixset
+
 
 // Generic Rover class
 // Captures general model behaviour common to the leader and follower

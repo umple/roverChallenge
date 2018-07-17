@@ -27,5 +27,12 @@ class RoverController {
     }
     return data;
   }
-
+  
+  double getOffHeading() {
+    double toLeader = follower.getBearingToLeader();
+    if(toLeader > 180.0) toLeader -= 360.0;
+    double myDirection = follower.getCompass();
+    if(myDirection > 180.0) myDirection -= 360.0;      
+    return(myDirection-toLeader);
+  }
 }

@@ -7,10 +7,11 @@ class RoverController {
 
   // central algorithm to control the follower rover
   public void follow() {
-      
+
+    // Start the simulation      
     System.out.println("program: "+ ref.send("ready"));
 
-    // Start the simulation
+    // Start off at full power
     drive.Go();
     
     // Wait a little for the leader to get going
@@ -21,8 +22,6 @@ class RoverController {
     int turnTime= 0; // How much time will we spend on turning pulse
     double amountBehind = 0.0;  // How far from leader are we
     double offHeading =0.0; // How far in degrees are we from heading to leader
-    double myDirection = 0.0; // What direction are we heading
-    double toLeader =0.0;  // What direction is leader
     boolean braking = false; // Are we in process of braking as far too close?
     double leaderX = 0.0;  // Where is leader? X
     double leaderY = 0.0; // Where is leader? Y
@@ -45,11 +44,7 @@ class RoverController {
       System.out.println(follower.getPositionString());       
 
       // ************** TURN if we need to
-      toLeader = follower.getBearingToLeader();
-      if(toLeader > 180.0) toLeader -= 360.0;
-      myDirection = follower.getCompass();
-      if(myDirection > 180.0) myDirection -= 360.0;      
-      offHeading = myDirection-toLeader;
+      offHeading = getOffHeading();
       turnTime = DEFAULT_TURN_TIME;
       if(offHeading < -MIN_TURN_THRESHOLD) {
         drive.Right(); System.out.println(""+i+" Turn RIGHT "+offHeading );

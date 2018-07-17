@@ -1,1 +1,37 @@
 // Mixin with sets of parameters used by the AM algorithm
+
+class RoverController {
+
+  // Start off at half power
+  const INITIAL_TOTAL_POWER = 50;
+
+  // Amount of time in ms to give leader initial head start
+  const INITIAL_LEADER_HEADSTART_TIME=500;
+  
+  // Constant interval for adjustment of thrust and/or breaking
+  const INTERVAL_TIME=300;
+
+  // Distance at which should set power to maximum
+  const DANGER_TOO_FAR_DISTANCE = 13.25;
+
+  // Distance at which we should inrement power
+  const MAX_SAFE_DISTANCE = 13.0;
+  
+  // Distance at which we should decrement power 
+  const MIN_SAFE_DISTANCE = 12.75;
+
+  // Distance at which should drop power to zero
+  const CONCERN_TOO_NEAR_DISTANCE = 12.5;  
+  
+  // Distance at which should go into reverse
+  const DANGER_TOO_NEAR_DISTANCE = 12.25;  
+  
+  // Amount of speed adjustment
+  const SPEED_INCREMENT = 40;
+  
+  // Maximum off heading before we start to turn
+  const MIN_TURN_THRESHOLD = 5.0;
+  
+  // Wheel power difference per degree of off heading
+  const DIRECTION_MULTIPLIER = 15;
+}

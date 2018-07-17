@@ -25,6 +25,13 @@ class DriveCommands {
         rover.noReply(name+",setLRPower(100,100)");
         System.out.println(name+",setLRPower(100,100)");
     }
+    
+    // Added -- not in original distribution
+    public void GoWithLRPower(int leftPower, int rightPower) {
+        String command= name+",setLRPower("+leftPower+","+rightPower+")";
+        rover.noReply(command);
+        System.out.println(command);
+    }
 
     public void Stop(){
         rover.noReply(name+",setLRPower(0,0)");

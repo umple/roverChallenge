@@ -14,7 +14,7 @@ class RoverController {
     drive.Go();
     
     // Wait a little for the leader to get going
-    sleepms(500);
+    sleepms(INITIAL_LEADER_HEADSTART_TIME);
     
     int coastTime=0;  // How much time will we coast next after power pulse released
     int powerTime=0;  // How much time we will pulse power
@@ -36,9 +36,11 @@ class RoverController {
       System.out.println("\n"+leader.getPositionString());
       System.out.println(follower.getPositionString());
 
-      coastTime=500;
-      drive.Stop();
-      sleepms(coastTime); 
+      coastTime=DEFAULT_COAST_TIME;
+      drive.Stop(); // Stop any pulse or turn action
+      sleepms(coastTime); // Coast a bit
+      
+      // Find out and print out where we are this cycle
       System.out.println("\n"+leader.getPositionString());  
       System.out.println(follower.getPositionString());       
 
@@ -48,17 +50,16 @@ class RoverController {
       myDirection = follower.getCompass();
       if(myDirection > 180.0) myDirection -= 360.0;      
       offHeading = myDirection-toLeader;
-      turnTime = 25;
-      if(offHeading < -5.0) {
+      turnTime = DEFAULT_TURN_TIME;
+      if(offHeading < -MIN_TURN_THRESHOLD) {
         drive.Right(); System.out.println(""+i+" Turn RIGHT "+offHeading );
       }
-      else if(offHeading > 5.0) {
-        drive.Left(); System.out.println(""+i+" Turn LEFT "+offHeading);
-        if(offHeading > 10.0) turnTime *=3;        
+      else if(offHeading > MIN_TURN_THRESHOLD) {
+        drive.Left(); System.out.println(""+i+" Turn LEFT "+offHeading);       
       }
       // Increase time turning if getting far off course proportional to amount off
-      if(Math.abs(offHeading) > 10) {
-        turnTime = (int)((double) turnTime * Math.abs(offHeading) / 5.0);
+      if(Math.abs(offHeading) > LONG_TURN_THRESHOLD) {
+        turnTime = (int)((double) turnTime * Math.abs(offHeading) / TURN_DIVISOR);
       }
       
       sleepms(turnTime);  
@@ -67,10 +68,10 @@ class RoverController {
 
       // ************  PUSH ON if we are falling back
       amountBehind = follower.getDistanceToLeader();
-      if(amountBehind > 13.0)
+      if(amountBehind > MAX_AMOUNT_BEHIND_BEFORE_THRUST)
       {
         drive.Go(); System.out.println(""+i+" GO ON");
-        powerTime = 500;
+        powerTime = DEFAULT_THRUST_TIME;
         breakReadyCount = 0;     
       }
       else {
@@ -78,15 +79,17 @@ class RoverController {
       }
       // If we are getting considerably too far behind,
       // put more-than-proportionally more time into power
-      if(amountBehind > 13.3) {
-        powerTime = (int)((double)(powerTime * Math.pow(amountBehind / 13.3,3.0)));
+      if(amountBehind > EXTRA_THRUST_NEEDED_DISTANCE) {
+        powerTime = (int)((double)(powerTime * Math.pow(amountBehind /
+          EXTRA_THRUST_NEEDED_DISTANCE,EXTRA_THRUST_EXPONENT)));
       }
       
       // If we have caught up brake slightly proportional to amount ahead
       braking = false;
-      if(amountBehind < 12.5) {
+      if(amountBehind < MIN_AMOUNT_BEHIND_BEFORE_BRAKE) {
         drive.Brake(true); System.out.println(""+i+" BRAKE");
-        powerTime = (int)((15.5-amountBehind) * 10.0);
+        powerTime = (int)((MIN_AMOUNT_BEHIND_BEFORE_BRAKE+3
+          -amountBehind) * BRAKING_THRESHOLD);
         braking = true;
       }
       
@@ -108,10 +111,10 @@ class RoverController {
     
     // At end of above loop, we may need to slow down and stop
     amountBehind = follower.getDistanceToLeader();
-    if (amountBehind < 10.0) {
+    if (amountBehind < END_MIN_DISTANCE_BEFORE_REVERSE) {
       drive.Reverse();
       System.out.println("REVERSING to avoid crash at end");
-      sleepms(40);
+      sleepms(END_REVERSE_TIME);
     }
     drive.Stop();  // Make sure no more power is being applied.
     

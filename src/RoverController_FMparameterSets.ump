@@ -2,4 +2,59 @@
 
 class RoverController {
 
+  // Amount of time in ms to give leader initial head start
+  const INITIAL_LEADER_HEADSTART_TIME=500;
+  
+  // Amount of time in ms by default to coast in each cycle
+  const DEFAULT_COAST_TIME=500;
+  
+  // Constants to control turning
+  
+  // Amount of time in ms by default to turn in each cycle
+  // will be 0 if we don't need to turn
+  // will be a multiple of this if turning for longer is needed
+  const DEFAULT_TURN_TIME = 25;
+  
+  // Number of degrees away from correct bearing to leader before we turn towards it
+  const MIN_TURN_THRESHOLD = 5.0;
+  
+  // Number of degrees away from correct bearing to leader before we make longer turn to it
+  const LONG_TURN_THRESHOLD = 10;
+  
+  // Ratio of turn time to degrees if over long turn threshold
+  // Lower means we turn more. 5 means we turn an extra turn time per needed 5 degrees
+  const TURN_DIVISOR = 5.0;
+  
+  
+  // Constants to control thrust
+  
+  // Amount behind leader before we need to thrust
+  const MAX_AMOUNT_BEHIND_BEFORE_THRUST = 13.0;  
+  
+  // Amount of time in ms by default to thrust each cycle
+  const DEFAULT_THRUST_TIME = 500;
+  
+  // Amount behind leader before we thrust even longer
+  const EXTRA_THRUST_NEEDED_DISTANCE = 13.3;
+  
+  // exponent of extra thrust time applied per unit behind
+  const EXTRA_THRUST_EXPONENT = 3.0;
+
+  
+  // Constants to control braking
+  
+  // Amount behind leader before we need to brake
+  const MIN_AMOUNT_BEHIND_BEFORE_BRAKE = 12.5;
+  
+  // Multiple of default thrust time to brake per unit close
+  const BRAKING_THRESHOLD = 10.0;
+  
+  // Constants to avoid crash at end
+  
+  // Emergency reverse distance
+  const END_MIN_DISTANCE_BEFORE_REVERSE = 10.0;
+  const END_REVERSE_TIME = 40;
+  
+  
+  
 }

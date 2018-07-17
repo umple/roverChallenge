@@ -1,0 +1,5 @@
+// Rover controller AM state machine and algorithm mixin
+
+class RoverController {
+
+}

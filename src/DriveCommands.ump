@@ -1,41 +1,40 @@
 // Author: Michal Pasternak
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+// Umplified and extended by Timothy Lethbridge
+
+strictness ignore 170;
 
 // format commands to unity string messages.
-public class DriveCommands {
-  public static String name;
-    private static SocketCommunicator rover;
+class DriveCommands {
+  depend java.io.IOException;
+  depend java.util.concurrent.TimeUnit;   
 
-    public DriveCommands (SocketCommunicator sc,String n){
-      rover = sc;
-      name = n;
-    }
+  SocketCommunicator rover;
+  String name;
 
-    public static void Left(){
+    public void Left(){
         rover.noReply(name+",setLRPower(-100,100)");
         System.out.println(name+",setLRPower(-100,100)");
     }
 
-    public static void Right(){
+    public void Right(){
         rover.noReply(name+",setLRPower(100,-100)");
         System.out.println(name+",setLRPower(100,-100)");
     }
 
-    public static void Go(){
+    public void Go(){
         rover.noReply(name+",setLRPower(100,100)");
         System.out.println(name+",setLRPower(100,100)");
     }
 
-    public static void Stop(){
+    public void Stop(){
         rover.noReply(name+",setLRPower(0,0)");
         System.out.println(name+",setLRPower(0,0)");
     }
-    public static void Reverse(){
+    public void Reverse(){
         rover.noReply(name+",setLRPower(-100,-100)");
         System.out.println(name+",setLRPower(-100,-100)");
     }
-    public static void Brake(boolean on){
+    public void Brake(boolean on){
       if (on == true){
         rover.noReply(name+",brake(100)");
         System.out.println(name+",brake(100)");
@@ -44,7 +43,7 @@ public class DriveCommands {
         rover.noReply(name+",brake(0)");
         System.out.println(name+",brake(0)");
     }
-    public static void Place(){
+    public void Place(){
         rover.noReply(name+",place()");
         System.out.println(name+",place()");
     }

@@ -1,0 +1,112 @@
+// Mixin Rover code for communicating with server
+
+class Rover {
+
+  // Gets data (position etc.) from the server
+  void updatePosition() {
+    long updateTime = System.currentTimeMillis();
+    if(updateTime - lastUpdateTime > MinimumRefreshTime) {
+      // Save previous data so we can calculate speed
+      double oldXPos = xPos;  // avoid using get to prevent recursion
+      double oldYPos = yPos;  // avoid using get to prevent recursion
+    
+      // Update GPS position 
+      String qresult = querySocket.send(nameForCommanding+",GPS()");
+      Scanner s = new Scanner(qresult);    
+      s.findInLine(nameForCommanding+",(-?\\d+\\.\\d+(?:E-?d+)?),(-?\\d+\\.\\d+(?:E-?d+)?);");
+      try {
+        MatchResult result = s.match();
+        if(result.group(1).contains("E")) setXPos(0.0);
+        else setXPos(Double.parseDouble(result.group(1))); 
+        
+        if(result.group(2).contains("E")) setYPos(0.0);
+        else setYPos(Double.parseDouble(result.group(2))); 
+      }
+      catch(Exception ise) {
+        System.out.println("Could not extract GPS position: "+qresult);
+        System.exit(-1);
+      }
+
+      s.close(); 
+    
+      // Update other data specific to subclasses
+      updateOtherData();
+      
+      // Calculate speed (multiply result by 1000 so it is per second)
+      if(lastUpdateTime > 0) {
+        double deltaX= xPos - oldXPos;
+        double deltaY= yPos - oldYPos;
+        long deltaTime = updateTime -lastUpdateTime;
+        setSpeed(1000.0*Math.sqrt(deltaX*deltaX+deltaY*deltaY)/(double)deltaTime);
+      }   
+      lastUpdateTime = updateTime;
+    }  
+  }
+  
+  // Hook method -- subclasses override to add more information
+  void updateOtherData() {} // do nothing in this abstract class
+
+  // Used to obtain and output known data about the rover
+  String getPositionString (){
+    return (nameForCommanding+" Position: "+
+     String.format("%.5f",getXPos())+","+String.format("%.5f",getYPos())+
+     " Speed: "+String.format("%.5f",getSpeed()));
+  }
+}
+
+class LeaderRover {
+
+  void updateOtherData() {
+    // Update Distance to follower
+    String qresult = getQuerySocket().send(getNameForCommanding()+",Distance()");
+    Scanner s = new Scanner(qresult);    
+    s.findInLine(getNameForCommanding()+",(\\d+\\.\\d+(?:E-?d+)?);");
+    try {
+      MatchResult result = s.match();
+      setDistanceToFollower(Double.parseDouble(result.group(1))); 
+    }
+    catch(Exception ise) {
+      System.out.println("Could not extract distance: "+qresult);
+      System.exit(-1);
+    }    
+
+    s.close();     
+  }
+
+  String getPositionString (){
+    return (super.getPositionString()+" Dist: "+
+     String.format("%.5f",getDistanceToFollower()));
+  } 
+}
+
+class FollowerRover {
+
+  void updateOtherData() {
+    String qresult = getQuerySocket().send(getNameForCommanding()+",getCompass()");
+    Scanner s = new Scanner(qresult);    
+    s.findInLine(getNameForCommanding()+",(\\d+\\.\\d+(?:E-?d+)?);");
+    try {
+      MatchResult result = s.match();
+      setCompass(Double.parseDouble(result.group(1))); 
+    }
+    catch(Exception ise) {
+      System.out.println("Could not extract compass: "+qresult);
+      System.exit(-1);
+    }       
+
+    s.close();
+
+    bearingToLeader = Math.toDegrees(Math.atan2(leader.getXPosQuick() - getXPosQuick(), leader.getYPosQuick() - getYPosQuick()));
+    if(bearingToLeader < 0){
+        bearingToLeader += 360;
+    }
+  }
+
+  String getPositionString (){
+    return (super.getPositionString()+" Comp: "+
+     String.format("%.5f",getCompass())
+     +" ToLeader: "+
+     String.format("%.5f",getBearingToLeader())
+     );
+  } 
+}

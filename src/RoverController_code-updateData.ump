@@ -84,14 +84,19 @@ class FollowerRover {
   void updateOtherData() {
     String qresult = getQuerySocket().send(getNameForCommanding()+",getCompass()");
     Scanner s = new Scanner(qresult);    
-    s.findInLine(getNameForCommanding()+",(\\d+\\.\\d+(?:E-?d+)?);");
+    s.findInLine(getNameForCommanding()+",(\\d+(?:\\.\\d+)(?:E-?d+)?);");
     try {
       MatchResult result = s.match();
       setCompass(Double.parseDouble(result.group(1))); 
     }
     catch(Exception ise) {
-      System.out.println("Could not extract compass: "+qresult);
-      System.exit(-1);
+      if(qresult.substring(qresult.length() - 3).equals(",0;")) {
+        setCompass(0.0);
+      }
+      else {
+        System.out.println("Could not extract compass: "+qresult);
+        System.exit(-1);
+      }
     }       
 
     s.close();

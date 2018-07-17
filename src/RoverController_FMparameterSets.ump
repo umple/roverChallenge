@@ -6,7 +6,7 @@ class RoverController {
   const INITIAL_LEADER_HEADSTART_TIME=500;
   
   // Amount of time in ms by default to coast in each cycle
-  const DEFAULT_COAST_TIME=500;
+  const DEFAULT_COAST_TIME=250;
   
   // Constants to control turning
   
@@ -32,7 +32,7 @@ class RoverController {
   const MAX_AMOUNT_BEHIND_BEFORE_THRUST = 13.0;  
   
   // Amount of time in ms by default to thrust each cycle
-  const DEFAULT_THRUST_TIME = 500;
+  const DEFAULT_THRUST_TIME = 250;
   
   // Amount behind leader before we thrust even longer
   const EXTRA_THRUST_NEEDED_DISTANCE = 13.3;

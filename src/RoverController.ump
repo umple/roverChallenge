@@ -3,7 +3,7 @@
 // Adapted from work by Author: Michal Pasternak originally in Java
 // Umplified and modifies by author: Timothy Lethbridge
 
-// One classes are being left un-umplifed (in Java)
+// One class is being left un-umplifed (in Java)
 external SocketCommunicator {}
 
 // Class that formats and sends commands
@@ -18,8 +18,8 @@ mixset FM {
 mixset AM {
   use RoverController_AMfolllow.ump;
 }
-// use FM; // Activate the FM mixset
-use AM; // Activate the AM mixset
+ use FM; // Activate the FM mixset (works better)
+//use AM; // Activate the AM mixset
 
 
 // Generic Rover class

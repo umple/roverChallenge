@@ -97,9 +97,9 @@ class RoverController {
       // Set wheels to be equal
       entry / {setLrDifference(0);}
       adjust [Math.abs(savedOffHeading) > MIN_TURN_THRESHOLD] ->
-         directionMeedsAdjustment;
+         directionNeedsAdjustment;
     }
-    directionMeedsAdjustment {
+    directionNeedsAdjustment {
       // Set wheels to be different
       entry / {
         setLrDifference(-(int)savedOffHeading * DIRECTION_MULTIPLIER);
@@ -112,7 +112,7 @@ class RoverController {
          
       // re-check direction every cycle
       adjust [Math.abs(savedOffHeading) > MIN_TURN_THRESHOLD] ->
-         directionMeedsAdjustment;         
+         directionNeedsAdjustment;         
     }
     
   } // end of direction control state machine
